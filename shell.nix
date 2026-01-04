@@ -138,6 +138,7 @@ let
       source build/envsetup.sh 2>/dev/null
       export OFFICIAL_BUILD=true
       export QT_QPA_PLATFORM=xcb
+      unset LD_PRELOAD
 
       export JAVA_HOME="${pkgs.jdk17}"
 
