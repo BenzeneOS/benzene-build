@@ -85,6 +85,124 @@ let DEVICE_SERIALS = {
   lynx: "2A291JEHN03207",
 }
 
+let RELOAD_COMPONENTS = {
+  # APKs in system_ext/priv-app
+  Settings: { src: "system_ext/priv-app/Settings/Settings.apk", dest: "/system_ext/priv-app/Settings/", clear_oat: false },
+  SystemUI: { src: "system_ext/priv-app/SystemUI/SystemUI.apk", dest: "/system_ext/priv-app/SystemUI/", clear_oat: true },
+  Launcher3: { src: "system_ext/priv-app/Launcher3QuickStep/Launcher3QuickStep.apk", dest: "/system_ext/priv-app/Launcher3QuickStep/", clear_oat: true },
+
+  # Framework JARs
+  framework: { src: "system/framework/framework.jar", dest: "/system/framework/", clear_oat: false },
+  services: { src: "system/framework/services.jar", dest: "/system/framework/", clear_oat: false },
+}
+
+# Ensure device is rooted and remounted for hot-reload
+def adb-setup [serial: string] {
+  # Check if already rooted by testing shell id
+  let id_check = (do { ^adb -s $serial shell "id -u" } | complete)
+  let is_root = ($id_check.stdout | str trim) == "0"
+
+  if not $is_root {
+    print "Enabling adb root..."
+    let root_result = (do { ^adb -s $serial root } | complete)
+    if ($root_result.exit_code != 0) {
+      print $"Error: adb root failed - ($root_result.stderr)"
+      return false
+    }
+    sleep 1sec
+  }
+
+  # Check if already remounted by trying to touch a file
+  let touch_check = (do { ^adb -s $serial shell "touch /system/.remount_test && rm /system/.remount_test" } | complete)
+  if ($touch_check.exit_code == 0) {
+    # Already remounted
+    return true
+  }
+
+  # Need to remount
+  print "Remounting partitions..."
+  let remount_result = (do { ^adb -s $serial remount } | complete)
+  if ($remount_result.exit_code == 0) and not ($remount_result.stdout | str contains "failed") {
+    return true
+  }
+
+  # Remount failed - need reboot cycle
+  print "Remount failed (first boot?), rebooting to enable..."
+  ^adb -s $serial reboot
+  print "Waiting for device to reboot..."
+  ^adb -s $serial wait-for-device
+  sleep 5sec
+  ^adb -s $serial root
+  sleep 1sec
+  let retry = (do { ^adb -s $serial remount } | complete)
+  if ($retry.exit_code != 0) or ($retry.stdout | str contains "failed") {
+    print $"Error: remount still failed - ($retry.stderr)"
+    return false
+  }
+
+  return true
+}
+
+# Build and hot-reload components to device
+def reload [...components: string] {
+  if ($components | is-empty) {
+    print "Usage: reload <component> [component...]"
+    print $"Available: ($RELOAD_COMPONENTS | columns | str join ', ')"
+    return
+  }
+
+  let device = $env.DEVICE
+  let serial = ($DEVICE_SERIALS | get -o $device)
+  if ($serial == null) {
+    print $"Error: No serial for ($device). Add it to DEVICE_SERIALS."
+    return
+  }
+
+  let product_out = $"($env.OUT_DIR)/target/product/($device)"
+
+  # Validate all components exist in mapping
+  for comp in $components {
+    if not ($comp in ($RELOAD_COMPONENTS | columns)) {
+      print $"Error: Unknown component '($comp)'"
+      print $"Available: ($RELOAD_COMPONENTS | columns | str join ', ')"
+      return
+    }
+  }
+
+  # Build first
+  print $"Building: ($components | str join ' ')"
+  m ...$components
+
+  # Setup device (root + remount) - skips if already done
+  if not (adb-setup $serial) {
+    return
+  }
+
+  # Push each component
+  for comp in $components {
+    let info = ($RELOAD_COMPONENTS | get $comp)
+    let src = $"($product_out)/($info.src)"
+    let dest = $info.dest
+
+    if not ($src | path exists) {
+      print $"Error: ($src) not found"
+      return
+    }
+
+    if $info.clear_oat {
+      print $"Clearing oat for ($comp)..."
+      ^adb -s $serial shell $"rm -rf ($dest)oat"
+    }
+
+    print $"Pushing ($comp)..."
+    ^adb -s $serial push $src $dest
+  }
+
+  print "Restarting system..."
+  ^adb -s $serial shell "stop; start"
+  print "Done"
+}
+
 # Quick flash via fastboot - much faster than sideload, skips signing
 # --skip-boot: Skip boot images to preserve Magisk root (use when kernel didn't change)
 # --only-system: Only flash system/vendor (fastest, for framework-only changes)
@@ -164,9 +282,15 @@ def quick-flash [--skip-boot = false, --only-system = false, --skip-reboot = fal
       fastboot -s $serial flash vbmeta $"($product_out)/vbmeta.img"
     } else {
       print "Skipping boot images (preserving Magisk root)"
+      # Flash vbmeta with verification disabled to allow mismatched boot images
+      print "Flashing vbmeta (with verification disabled for Magisk compatibility)..."
+      fastboot -s $serial flash vbmeta --disable-verity --disable-verification $"($product_out)/vbmeta.img"
     }
   } else {
     print "Only-system mode: skipped dlkm and boot images"
+    # Flash vbmeta with verification disabled to allow mismatched boot images
+    print "Flashing vbmeta (with verification disabled for Magisk compatibility)..."
+    fastboot -s $serial flash vbmeta --disable-verity --disable-verification $"($product_out)/vbmeta.img"
   }
 
   if not $skip_reboot {
