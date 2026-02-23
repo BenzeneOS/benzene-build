@@ -36,19 +36,18 @@ let
         ))
         freetype
         fontconfig
-        # adevtool
         nodejs
         yarn
         e2fsprogs
         (pkgs.python3.withPackages (pkgs: [ pkgs.protobuf ]))
 
         # X11/Wayland for emulator
-        xorg.libX11
-        xorg.libXext
-        xorg.libXrender
-        xorg.libXtst
-        xorg.libXi
-        xorg.libXcursor
+        libX11
+        libXext
+        libXrender
+        libXtst
+        libXi
+        libXcursor
         libGL
         libpulseaudio
         libxkbcommon
@@ -63,22 +62,19 @@ let
         vulkan-loader
         expat
         libdrm
-        xorg.libxcb
-        xorg.libxkbfile
+        libxcb
+        libxkbfile
         libbsd
-        xorg.xcbutilcursor
-        xorg.xcbutilimage
-        xorg.xcbutilkeysyms
-        xorg.xcbutilrenderutil
-        xorg.xcbutilwm
-        xorg.libSM
-        xorg.libICE
-        xorg.libX11
-        xorg.libxcb
-        xorg.xcbutil
-        xorg.libXrandr
-        xorg.libXfixes
-        libxkbcommon
+        xcbutilcursor
+        xcbutilimage
+        xcbutilkeysyms
+        xcbutilrenderutil
+        xcbutilwm
+        libSM
+        libICE
+        xcbutil
+        libXrandr
+        libXfixes
 
         # Development tools
         jdk21
@@ -90,7 +86,7 @@ let
         jdt-language-server
         clang-tools
         rust-analyzer
-        nodePackages.typescript-language-server
+        typescript-language-server
 
         ktlint
         google-java-format
@@ -119,6 +115,16 @@ let
         inotify-tools
       ];
 
+    # Bind host /etc entries needed by nushell config (atuin, nushell, direnv, etc.)
+    extraBwrapArgs = [
+      "--symlink"
+      "/.host-etc/nushell"
+      "/etc/nushell"
+      "--symlink"
+      "/.host-etc/atuin"
+      "/etc/atuin"
+    ];
+
     runScript = pkgs.writeScript "graphene-shell" ''
       #!${pkgs.bash}/bin/bash
       if [ -z "''${DEVICE:-}" ]; then
@@ -129,12 +135,15 @@ let
       export DEVICE="''${DEVICE}"
       export TYPE="''${TYPE:-userdebug}"
       export NU_LIB_DIRS="${pkgs.nu_scripts}/share/nu_scripts"
-      exec ${pkgs.nushell}/bin/nu -e "use ${pkgs.nu_scripts}/share/nu_scripts/modules/capture-foreign-env; source graphene-env.nu"
+      NU_CONFIG_ARGS=""
+      if [ -f /etc/nushell/config.nu ]; then
+        NU_CONFIG_ARGS="--config /etc/nushell/config.nu"
+      fi
+      exec ${pkgs.nushell}/bin/nu $NU_CONFIG_ARGS -e "use ${pkgs.nu_scripts}/share/nu_scripts/modules/capture-foreign-env; source graphene-env.nu"
     '';
 
     profile = ''
       export ALLOW_NINJA_ENV=true
-      export LD_LIBRARY_PATH=/usr/lib:/usr/lib32
       source build/envsetup.sh 2>/dev/null
       export OFFICIAL_BUILD=true
       export QT_QPA_PLATFORM=xcb
@@ -142,12 +151,8 @@ let
 
       export JAVA_HOME="${pkgs.jdk17}"
 
-      export USE_CCACHE=1
-      export CCACHE_DIR="$XDG_CACHE_HOME/sccache-aosp"
-      export CCACHE_EXEC="$(which sccache)"
-      export SCCACHE_DIR="$XDG_CACHE_HOME/sccache-aosp"
-      export SCCACHE_CACHE_SIZE="100G"
-      sccache --start-server 2>/dev/null
+      export ANDROID_BUILD_ENVIRONMENT_CONFIG=benzene-rbe
+      export ANDROID_BUILD_ENVIRONMENT_CONFIG_DIR="."
 
       echo "LSP servers available:"
       echo "  - kotlin-language-server (Kotlin)"

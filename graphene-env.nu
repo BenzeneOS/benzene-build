@@ -3,7 +3,8 @@ def today-midnight [] { date now | format date "%Y-%m-%d" | into datetime | form
 
 def --env setup-build-env [] {
   $env.OUT_DIR = $"out-($env.DEVICE)"
-  $"source build/envsetup.sh && lunch ($env.DEVICE)-cur-($env.TYPE)" | capture-foreign-env --shell /bin/bash | load-env
+  $"unset LD_PRELOAD; source build/envsetup.sh && lunch ($env.DEVICE)-cur-($env.TYPE)" | capture-foreign-env --shell /bin/bash | load-env
+  $env.LD_PRELOAD = ""  # ensure it stays unset after load-env
   $env.BUILD_DATETIME = (today-midnight)
   $env.BUILD_NUMBER = (date now | format date "%Y%m%d00")
 }
@@ -32,17 +33,35 @@ def build-vendor [] { m vendorbootimage vendorkernelbootimage target-files-packa
 
 def build-ota [] { m otatools-package }
 
-def finalize [] { script/finalize.sh }
+def finalize [] { with-env { OUT: $env.OUT } { script/finalize.sh } }
+
+# Wrapper for `emulator` that works around an Android emulator bug:
+# pathFileSystemIsExt4Internal in libandroid-emu-metrics.so calls strlen on a
+# NULL pointer when /proc/mounts has a bcachefs multi-device entry (source field
+# with a colon). Older glibc silently returned 0; newer glibc (2.42+, NixOS 26.05)
+# has an AVX-512-optimized strlen that segfaults on NULL — exposes the latent bug.
+# The shim at /tmp/emu-fs-stub.so overrides the function to always return false.
+def --wrapped emu [...args: string] {
+  if not ('/tmp/emu-fs-stub.so' | path exists) {
+    let src = '/tmp/emu-fs-stub.cc'
+    'extern "C" bool _ZN7android4base6System28pathFileSystemIsExt4InternalENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEE(const char* d, unsigned long n) { return false; }
+' | save -f $src
+    ^g++ -shared -fPIC -O2 -o /tmp/emu-fs-stub.so $src
+  }
+  with-env { LD_PRELOAD: '/tmp/emu-fs-stub.so' } { ^emulator ...$args }
+}
 
 def gen-release [] {
-  script/generate-release.sh $env.DEVICE $env.BUILD_NUMBER
+  with-env { OUT: $env.OUT } { script/generate-release.sh $env.DEVICE $env.BUILD_NUMBER }
 }
 
 def build-all [] {
   m vendorbootimage vendorkernelbootimage target-files-package
   m otatools-package
-  script/finalize.sh
-  script/generate-release.sh $env.DEVICE $env.BUILD_NUMBER
+  with-env { OUT: $env.OUT } {
+    script/finalize.sh
+    script/generate-release.sh $env.DEVICE $env.BUILD_NUMBER
+  }
   root-ota
 }
 
