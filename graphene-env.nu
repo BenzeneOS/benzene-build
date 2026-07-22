@@ -65,11 +65,24 @@ def build-all [] {
   root-ota
 }
 
+# Verify with `magisk --preinit-device` in a rooted shell; wrong value bootloops the rooted OTA
+let MAGISK_PREINIT = {
+  komodo: "metadata",
+  lynx: "metadata",
+  cheetah: "metadata",
+}
+
 def root-ota [] {
   let device = $env.DEVICE
 
   if ($device | str starts-with "sdk_phone") or ($device == "emu64x") {
     print "Skipping root-ota for emulator (already has root in eng builds)"
+    return
+  }
+
+  let preinit = ($MAGISK_PREINIT | get -o $device)
+  if ($preinit == null) {
+    print $"Error: No Magisk preinit device for ($device). Add it to MAGISK_PREINIT."
     return
   }
 
@@ -86,7 +99,7 @@ def root-ota [] {
   (avbroot ota patch
     --input $input_ota
     --magisk "Magisk.apk"
-    --magisk-preinit-device metadata
+    --magisk-preinit-device $preinit
     --key-avb $"keys/($device)/avb.pem"
     --key-ota $"keys/($device)/releasekey.pem"
     --cert-ota $"keys/($device)/releasekey.x509.pem"
