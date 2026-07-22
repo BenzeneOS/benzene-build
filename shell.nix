@@ -39,7 +39,6 @@ let
         nodejs
         yarn
         e2fsprogs
-        (pkgs.python3.withPackages (pkgs: [ pkgs.protobuf ]))
 
         # X11/Wayland for emulator
         libX11
