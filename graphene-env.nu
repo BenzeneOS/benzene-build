@@ -25,8 +25,8 @@ def gen-compile-commands [] {
   print "Generating compile-commands.json for clangd..."
   bash -c $"source build/envsetup.sh && lunch ($env.DEVICE)-cur-($env.TYPE) && m ($env.OUT_DIR)/soong/development/ide/compdb/compile_commands.json"
   print "Done! Symlinking to project root..."
-  ln -sf $"($env.OUT_DIR)/soong/development/ide/compdb/compile_commands.json" compile-commands.json
-  print "compile-commands.json ready for clangd!"
+  ln -sf $"($env.OUT_DIR)/soong/development/ide/compdb/compile_commands.json" compile_commands.json
+  print "compile_commands.json ready for clangd!"
 }
 
 def build-vendor [] { m vendorbootimage vendorkernelbootimage target-files-package }
