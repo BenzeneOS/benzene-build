@@ -159,14 +159,20 @@ let
       echo "  - clangd (C/C++)"
 
       echo "GrapheneOS build environment loaded!"
-      echo "Available shortcuts:"
+      echo "Available shortcuts (all use \$DEVICE/\$TYPE from the environment):"
       echo "  setup-adevtool          - Install adevtool dependencies"
-      echo "  gen-vendor CODENAME     - Generate vendor files for device"
-      echo "  lunch-device [DEVICE]   - Lunch device (default: komodo)"
-      echo "  build-vendor            - Build vendor boot images"
-      echo "  build-ota               - Build OTA tools package"
-      echo "  finalize                - Copy build artifacts to releases"
-      echo "  gen-release DEV BUILD   - Generate signed release build"
+      echo "  gen-vendor              - Generate vendor files"
+      echo "  lunch-device            - Re-lunch after env changes"
+      echo "  build-all               - vendor images + OTA + finalize + gen-release + root-ota"
+      echo "  build-vendor / build-ota / finalize / gen-release steps individually"
+      echo "  root-ota                - Patch OTA with Magisk via avbroot"
+      echo "  sideload [--rooted]     - Sideload the OTA over adb"
+      echo "  quick-flash             - Fastboot-flash built images, no signing"
+      echo "  build-flash             - m + quick-flash"
+      echo "  reload COMPONENT...     - Build + hot-push Settings/SystemUI/framework"
+      echo "  flash-factory DIR       - Flash extracted factory image without wiping"
+      echo "  gen-compile-commands    - compile_commands.json for clangd"
+      echo "  emu                     - emulator wrapper (bcachefs strlen workaround)"
     '';
   };
 in
