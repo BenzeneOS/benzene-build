@@ -65,10 +65,6 @@ def build-all [] {
   root-ota
 }
 
-def sign-ota [] {
-  script/generate-release.sh $env.DEVICE $env.BUILD_NUMBER
-}
-
 def root-ota [] {
   let device = $env.DEVICE
 
