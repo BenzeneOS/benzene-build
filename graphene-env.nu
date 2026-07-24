@@ -7,6 +7,7 @@ def --env setup-build-env [] {
   $env.LD_PRELOAD = ""  # ensure it stays unset after load-env
   $env.BUILD_DATETIME = (today-midnight)
   $env.BUILD_NUMBER = (date now | format date "%Y%m%d00")
+  $env.SOONG_INCREMENTAL_ANALYSIS = ($env.SOONG_INCREMENTAL_ANALYSIS? | default "true")
 }
 
 setup-build-env
