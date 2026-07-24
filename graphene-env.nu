@@ -112,6 +112,7 @@ def root-ota [] {
 let DEVICE_SERIALS = {
   komodo: "47021FDAS004YA",
   lynx: "2A291JEHN03207",
+  cheetah: "33271FDH3001RW",
 }
 
 let RELOAD_COMPONENTS = {
