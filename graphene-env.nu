@@ -2,7 +2,7 @@
 def today-midnight [] { date now | format date "%Y-%m-%d" | into datetime | format date "%s" }
 
 def --env setup-build-env [] {
-  $env.OUT_DIR = $"out-($env.DEVICE)"
+  $env.OUT_DIR = ($env.OUT_DIR? | default $"out-($env.DEVICE)")
   $"unset LD_PRELOAD; source build/envsetup.sh && lunch ($env.DEVICE)-cur-($env.TYPE)" | capture-foreign-env --shell /bin/bash | load-env
   $env.LD_PRELOAD = ""  # ensure it stays unset after load-env
   $env.BUILD_DATETIME = (today-midnight)
