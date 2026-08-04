@@ -56,9 +56,10 @@ def gen-release [] {
   with-env { OUT: $env.OUT } { script/generate-release.sh $env.DEVICE $env.BUILD_NUMBER }
 }
 
-def build-all [] {
-  m vendorbootimage vendorkernelbootimage target-files-package
-  m otatools-package
+def build-all [--jobs (-j): int] {
+  let jargs = if $jobs == null { [] } else { [$"-j($jobs)"] }
+  m ...$jargs vendorbootimage vendorkernelbootimage target-files-package
+  m ...$jargs otatools-package
   with-env { OUT: $env.OUT } {
     script/finalize.sh
     script/generate-release.sh $env.DEVICE $env.BUILD_NUMBER
