@@ -5,8 +5,8 @@ def --env setup-build-env [] {
   $env.OUT_DIR = ($env.OUT_DIR? | default $"out-($env.DEVICE)")
   $"unset LD_PRELOAD; source build/envsetup.sh && lunch ($env.DEVICE)-cur-($env.TYPE)" | capture-foreign-env --shell /bin/bash | load-env
   $env.LD_PRELOAD = ""  # ensure it stays unset after load-env
-  $env.BUILD_DATETIME = (today-midnight)
-  $env.BUILD_NUMBER = (date now | format date "%Y%m%d00")
+  $env.BUILD_DATETIME = ($env.BUILD_DATETIME? | default (today-midnight))
+  $env.BUILD_NUMBER = ($env.BUILD_NUMBER? | default (date now | format date "%Y%m%d00"))
   $env.SOONG_INCREMENTAL_ANALYSIS = ($env.SOONG_INCREMENTAL_ANALYSIS? | default "true")
 }
 

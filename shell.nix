@@ -141,17 +141,14 @@ let
       exec ${pkgs.nushell}/bin/nu $NU_CONFIG_ARGS -e "use ${pkgs.nu_scripts}/share/nu_scripts/modules/capture-foreign-env; source graphene-env.nu"
     '';
 
-    profile = ''
-      export ALLOW_NINJA_ENV=true
+    profile =
+      (import ./build-env-common.nix).commonProfile
+      + ''
       source build/envsetup.sh 2>/dev/null
-      export OFFICIAL_BUILD=true
       export QT_QPA_PLATFORM=xcb
       unset LD_PRELOAD
 
       export JAVA_HOME="${pkgs.jdk17}"
-
-      export ANDROID_BUILD_ENVIRONMENT_CONFIG=benzene-rbe
-      export ANDROID_BUILD_ENVIRONMENT_CONFIG_DIR="."
 
       echo "LSP servers available:"
       echo "  - kotlin-language-server (Kotlin)"
