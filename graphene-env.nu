@@ -43,13 +43,16 @@ def finalize [] { with-env { OUT: $env.OUT } { script/finalize.sh } }
 # has an AVX-512-optimized strlen that segfaults on NULL — exposes the latent bug.
 # The shim at /tmp/emu-fs-stub.so overrides the function to always return false.
 def --wrapped emu [...args: string] {
-  if not ('/tmp/emu-fs-stub.so' | path exists) {
-    let src = '/tmp/emu-fs-stub.cc'
+  let cache_dir = ([$nu.home-path '.cache' 'benzene'] | path join)
+  let stub = ([$cache_dir 'emu-fs-stub.so'] | path join)
+  if not ($stub | path exists) {
+    mkdir $cache_dir
+    let src = ([$cache_dir 'emu-fs-stub.cc'] | path join)
     'extern "C" bool _ZN7android4base6System28pathFileSystemIsExt4InternalENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEE(const char* d, unsigned long n) { return false; }
 ' | save -f $src
-    ^g++ -shared -fPIC -O2 -o /tmp/emu-fs-stub.so $src
+    ^clang++ -shared -fPIC -O2 -o $stub $src
   }
-  with-env { LD_PRELOAD: '/tmp/emu-fs-stub.so' } { ^emulator ...$args }
+  with-env { LD_PRELOAD: $stub } { ^emulator ...$args }
 }
 
 def gen-release [] {
