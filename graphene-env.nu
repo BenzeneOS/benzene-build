@@ -71,50 +71,6 @@ def build-all [--jobs (-j): int, --factory] {
     script/finalize.sh
     script/generate-release.sh $env.DEVICE $env.BUILD_NUMBER
   }
-  root-ota
-}
-
-# Verify with `magisk --preinit-device` in a rooted shell; wrong value bootloops the rooted OTA
-let MAGISK_PREINIT = {
-  komodo: "metadata",
-  lynx: "metadata",
-  cheetah: "metadata",
-}
-
-def root-ota [] {
-  let device = $env.DEVICE
-
-  if ($device | str starts-with "sdk_phone") or ($device == "emu64x") {
-    print "Skipping root-ota for emulator (already has root in eng builds)"
-    return
-  }
-
-  let preinit = ($MAGISK_PREINIT | get -o $device)
-  if ($preinit == null) {
-    print $"Error: No Magisk preinit device for ($device). Add it to MAGISK_PREINIT."
-    return
-  }
-
-  let release_dir = $"releases/($env.BUILD_NUMBER)/release-($device)-($env.BUILD_NUMBER)"
-  let input_ota = $"($release_dir)/($device)-ota_update-($env.BUILD_NUMBER).zip"
-  let output_ota = $"($release_dir)/($device)-ota_update-($env.BUILD_NUMBER)-magisk.zip"
-
-  if not ($input_ota | path exists) {
-    print $"Error: OTA not found at ($input_ota)"
-    return
-  }
-
-  print $"Patching ($device) OTA with Magisk..."
-  (avbroot ota patch
-    --input $input_ota
-    --magisk "Magisk.apk"
-    --magisk-preinit-device $preinit
-    --key-avb $"keys/($device)/avb.pem"
-    --key-ota $"keys/($device)/releasekey.pem"
-    --cert-ota $"keys/($device)/releasekey.x509.pem"
-    --output $output_ota)
-
-  print $"Rooted OTA created: ($output_ota)"
 }
 
 let DEVICE_SERIALS = {
@@ -277,7 +233,7 @@ def reload [...components: string] {
 }
 
 # Quick flash via fastboot - much faster than sideload, skips signing
-# --skip-boot: Skip boot images to preserve Magisk root (use when kernel didn't change)
+# --skip-boot: Skip boot images (use when the kernel didn't change)
 # --only-system: Only flash system/vendor (fastest, for framework-only changes)
 def quick-flash [--skip-boot = false, --only-system = false, --skip-reboot = false] {
   let device = $env.DEVICE
@@ -336,7 +292,7 @@ def quick-flash [--skip-boot = false, --only-system = false, --skip-reboot = fal
     fastboot -s $serial flash vendor_dlkm $"($product_out)/vendor_dlkm.img"
 
     if not $skip_boot {
-      print "Flashing boot (will lose Magisk root)..."
+      print "Flashing boot..."
       fastboot -s $serial flash boot $"($product_out)/boot.img"
 
       print "Flashing vendor_boot..."
@@ -354,15 +310,15 @@ def quick-flash [--skip-boot = false, --only-system = false, --skip-reboot = fal
       print "Flashing vbmeta..."
       fastboot -s $serial flash vbmeta $"($product_out)/vbmeta.img"
     } else {
-      print "Skipping boot images (preserving Magisk root)"
+      print "Skipping boot images"
       # Flash vbmeta with verification disabled to allow mismatched boot images
-      print "Flashing vbmeta (with verification disabled for Magisk compatibility)..."
+      print "Flashing vbmeta (verification disabled for partial flash)..."
       fastboot -s $serial flash vbmeta --disable-verity --disable-verification $"($product_out)/vbmeta.img"
     }
   } else {
     print "Only-system mode: skipped dlkm and boot images"
     # Flash vbmeta with verification disabled to allow mismatched boot images
-    print "Flashing vbmeta (with verification disabled for Magisk compatibility)..."
+    print "Flashing vbmeta (verification disabled for partial flash)..."
     fastboot -s $serial flash vbmeta --disable-verity --disable-verification $"($product_out)/vbmeta.img"
   }
 
@@ -375,7 +331,7 @@ def quick-flash [--skip-boot = false, --only-system = false, --skip-reboot = fal
 }
 
 # Build and quick-flash in one command
-# --skip-boot preserves Magisk (use for framework-only changes)
+# --skip-boot skips boot images (use for framework-only changes)
 def build-flash [--skip-boot = true] {
   print "Building..."
   m
@@ -460,7 +416,7 @@ def flash-factory [factory_dir: string, --wipe = false] {
   print "Done! Factory image flashed."
 }
 
-def sideload [--rooted = true] {
+def sideload [] {
   let device = $env.DEVICE
 
   if ($device | str starts-with "sdk_phone") or ($device == "emu64x") {
@@ -488,11 +444,7 @@ def sideload [--rooted = true] {
   }
 
   let release_dir = $"releases/($env.BUILD_NUMBER)/release-($device)-($env.BUILD_NUMBER)"
-  let ota_file = if $rooted {
-    $"($release_dir)/($device)-ota_update-($env.BUILD_NUMBER)-magisk.zip"
-  } else {
-    $"($release_dir)/($device)-ota_update-($env.BUILD_NUMBER).zip"
-  }
+  let ota_file = $"($release_dir)/($device)-ota_update-($env.BUILD_NUMBER).zip"
 
   if not ($ota_file | path exists) {
     print $"Error: OTA not found at ($ota_file)"

@@ -30,7 +30,7 @@ pkgs.buildFHSEnv {
       (python3.withPackages (
         ps: with ps; [
           protobuf
-          lz4 # avbroot
+          lz4
         ]
       ))
       freetype
