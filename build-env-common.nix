@@ -24,7 +24,7 @@
       export DISABLE_STUB_VALIDATION=''${DISABLE_STUB_VALIDATION:-true}
     fi
     export SOONG_UI_TABLE_HEIGHT=''${SOONG_UI_TABLE_HEIGHT:-8}
-    export NINJA_STATUS=''${NINJA_STATUS:-"[%p %f/%t %r run %l left] "}
+    export NINJA_STATUS=''${NINJA_STATUS:-"[%p %f/%t %r run %u left @ %o/s] "}
 
     if [ ! -f "$ANDROID_BUILD_ENVIRONMENT_CONFIG_DIR/$ANDROID_BUILD_ENVIRONMENT_CONFIG.json" ]; then
       echo "Error: $ANDROID_BUILD_ENVIRONMENT_CONFIG.json not found in $PWD/$ANDROID_BUILD_ENVIRONMENT_CONFIG_DIR" >&2
