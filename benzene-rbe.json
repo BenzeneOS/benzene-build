@@ -33,6 +33,7 @@
     "RBE_RUST_EXEC_STRATEGY": "local",
     "RBE_ABI_DUMPER_EXEC_STRATEGY": "local",
     "RBE_ABI_LINKER_EXEC_STRATEGY": "local",
-    "RBE_SIGNAPK_EXEC_STRATEGY": "local"
+    "RBE_SIGNAPK_EXEC_STRATEGY": "local",
+    "SOONG_METALAVA_SOURCE_MODEL_PROVIDER": "turbine"
   }
 }
