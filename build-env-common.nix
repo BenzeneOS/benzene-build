@@ -11,6 +11,8 @@
     fi
     unset _top
 
+    unset _JAVA_OPTIONS JAVA_TOOL_OPTIONS JDK_JAVA_OPTIONS
+
     export ALLOW_NINJA_ENV=true
     export OFFICIAL_BUILD=true
     export ANDROID_BUILD_ENVIRONMENT_CONFIG=benzene-rbe
