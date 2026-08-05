@@ -114,17 +114,27 @@ let DEVICE_SERIALS = {
   komodo: "47021FDAS004YA",
   lynx: "2A291JEHN03207",
   cheetah: "33271FDH3001RW",
+  sdk_phone64_x86_64: "emulator-5554",
+}
+
+let DEVICE_PRODUCTS = {
+  sdk_phone64_x86_64: "emu64x",
 }
 
 let RELOAD_COMPONENTS = {
   # APKs in system_ext/priv-app
-  Settings: { src: "system_ext/priv-app/Settings/Settings.apk", dest: "/system_ext/priv-app/Settings/", clear_oat: false },
-  SystemUI: { src: "system_ext/priv-app/SystemUI/SystemUI.apk", dest: "/system_ext/priv-app/SystemUI/", clear_oat: true },
-  Launcher3: { src: "system_ext/priv-app/Launcher3QuickStep/Launcher3QuickStep.apk", dest: "/system_ext/priv-app/Launcher3QuickStep/", clear_oat: true },
+  Settings: { src: "system_ext/priv-app/Settings/Settings.apk", dest: "/system_ext/priv-app/Settings/", clear_oat: false, restart: "none" },
+  SystemUI: { src: "system_ext/priv-app/SystemUI/SystemUI.apk", dest: "/system_ext/priv-app/SystemUI/", clear_oat: true, restart: "killall com.android.systemui" },
+  Launcher3: { src: "system_ext/priv-app/Launcher3QuickStep/Launcher3QuickStep.apk", dest: "/system_ext/priv-app/Launcher3QuickStep/", clear_oat: true, restart: "killall com.android.launcher3" },
 
   # Framework JARs
-  framework: { src: "system/framework/framework.jar", dest: "/system/framework/", clear_oat: false },
-  services: { src: "system/framework/services.jar", dest: "/system/framework/", clear_oat: false },
+  framework: { src: "system/framework/framework.jar", dest: "/system/framework/", clear_oat: false, restart: "full" },
+  services: { src: "system/framework/services.jar", dest: "/system/framework/", clear_oat: false, restart: "full" },
+
+  # benzened
+  benzened: { src: "system/bin/benzened", dest: "/system/bin/", clear_oat: false, restart: "setprop ctl.restart benzened" },
+  benzened_runas: { src: "system/bin/benzened_runas", dest: "/system/bin/", clear_oat: false, restart: "none" },
+  benzened_su_client: { src: "system/bin/benzened_su_client", dest: "/system/bin/", clear_oat: false, restart: "none" },
 }
 
 # Ensure device is rooted and remounted for hot-reload
@@ -189,7 +199,8 @@ def reload [...components: string] {
     return
   }
 
-  let product_out = $"($env.OUT_DIR)/target/product/($device)"
+  let product = ($DEVICE_PRODUCTS | get -o $device | default $device)
+  let product_out = $"($env.OUT_DIR)/target/product/($product)"
 
   # Validate all components exist in mapping
   for comp in $components {
@@ -200,9 +211,24 @@ def reload [...components: string] {
     }
   }
 
+  let stamp_before = ($components | each {|comp|
+    let src = $"($product_out)/($RELOAD_COMPONENTS | get $comp | get src)"
+    if ($src | path exists) { ls $src | get 0.modified } else { null }
+  })
+
   # Build first
   print $"Building: ($components | str join ' ')"
   m ...$components
+
+  let stamp_after = ($components | each {|comp|
+    let src = $"($product_out)/($RELOAD_COMPONENTS | get $comp | get src)"
+    if ($src | path exists) { ls $src | get 0.modified } else { null }
+  })
+
+  if $stamp_before == $stamp_after {
+    print "Nothing rebuilt, skipping push"
+    return
+  }
 
   # Setup device (root + remount) - skips if already done
   if not (adb-setup $serial) {
@@ -229,8 +255,17 @@ def reload [...components: string] {
     ^adb -s $serial push $src $dest
   }
 
-  print "Restarting system..."
-  ^adb -s $serial shell "stop; start"
+  let restarts = ($components | each {|comp| $RELOAD_COMPONENTS | get $comp | get restart } | uniq)
+
+  if ("full" in $restarts) {
+    print "Restarting system..."
+    ^adb -s $serial shell "stop; start"
+  } else {
+    for action in ($restarts | where {|it| $it != "none" }) {
+      print $"Restarting: ($action)"
+      ^adb -s $serial shell $action
+    }
+  }
   print "Done"
 }
 
