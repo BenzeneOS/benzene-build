@@ -19,6 +19,7 @@
     export BUILD_DATETIME=''${BUILD_DATETIME:-$(date -d "today 00:00" +%s)}
     export BUILD_NUMBER=''${BUILD_NUMBER:-$(date +%Y%m%d00)}
     export SOONG_INCREMENTAL_ANALYSIS=true
+    export SOONG_PARTIAL_COMPILE=''${SOONG_PARTIAL_COMPILE:-true}
     export SOONG_UI_TABLE_HEIGHT=''${SOONG_UI_TABLE_HEIGHT:-8}
     export NINJA_STATUS=''${NINJA_STATUS:-"[%p %f/%t %r run %l left] "}
 
