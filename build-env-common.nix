@@ -19,6 +19,8 @@
     export BUILD_DATETIME=''${BUILD_DATETIME:-$(date -d "today 00:00" +%s)}
     export BUILD_NUMBER=''${BUILD_NUMBER:-$(date +%Y%m%d00)}
     export SOONG_INCREMENTAL_ANALYSIS=true
+    export SOONG_UI_TABLE_HEIGHT=''${SOONG_UI_TABLE_HEIGHT:-8}
+    export NINJA_STATUS=''${NINJA_STATUS:-"[%p %f/%t %r run %l left] "}
 
     if [ ! -f "$ANDROID_BUILD_ENVIRONMENT_CONFIG_DIR/$ANDROID_BUILD_ENVIRONMENT_CONFIG.json" ]; then
       echo "Error: $ANDROID_BUILD_ENVIRONMENT_CONFIG.json not found in $PWD/$ANDROID_BUILD_ENVIRONMENT_CONFIG_DIR" >&2
