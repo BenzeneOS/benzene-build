@@ -160,7 +160,7 @@ let
       echo "  setup-adevtool          - Install adevtool dependencies"
       echo "  gen-vendor              - Generate vendor files"
       echo "  lunch-device            - Re-lunch after env changes"
-      echo "  build-all               - vendor images + OTA + finalize + gen-release + root-ota"
+      echo "  build-all [--factory]   - vendor images + OTA + finalize + gen-release + root-ota"
       echo "  build-vendor / build-ota / finalize / gen-release steps individually"
       echo "  root-ota                - Patch OTA with Magisk via avbroot"
       echo "  sideload [--rooted]     - Sideload the OTA over adb"
