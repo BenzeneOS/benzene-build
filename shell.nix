@@ -31,7 +31,7 @@ let
         (python3.withPackages (
           ps: with ps; [
             protobuf
-            lz4 # avbroot
+            lz4
           ]
         ))
         freetype
@@ -160,9 +160,8 @@ let
       echo "  setup-adevtool          - Install adevtool dependencies"
       echo "  gen-vendor              - Generate vendor files"
       echo "  lunch-device            - Re-lunch after env changes"
-      echo "  build-all [--factory]   - vendor images + OTA + finalize + gen-release + root-ota"
+      echo "  build-all [--factory]   - vendor images + OTA + finalize + gen-release"
       echo "  build-vendor / build-ota / finalize / gen-release steps individually"
-      echo "  root-ota                - Patch OTA with Magisk via avbroot"
       echo "  sideload [--rooted]     - Sideload the OTA over adb"
       echo "  quick-flash             - Fastboot-flash built images, no signing"
       echo "  build-flash             - m + quick-flash"
