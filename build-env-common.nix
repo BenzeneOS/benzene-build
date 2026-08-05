@@ -20,6 +20,9 @@
     export BUILD_NUMBER=''${BUILD_NUMBER:-$(date +%Y%m%d00)}
     export SOONG_INCREMENTAL_ANALYSIS=true
     export SOONG_PARTIAL_COMPILE=''${SOONG_PARTIAL_COMPILE:-true}
+    if [ "''${TYPE:-userdebug}" != "user" ]; then
+      export DISABLE_STUB_VALIDATION=''${DISABLE_STUB_VALIDATION:-true}
+    fi
     export SOONG_UI_TABLE_HEIGHT=''${SOONG_UI_TABLE_HEIGHT:-8}
     export NINJA_STATUS=''${NINJA_STATUS:-"[%p %f/%t %r run %l left] "}
 
