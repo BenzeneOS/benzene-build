@@ -416,6 +416,17 @@ def flash-factory [factory_dir: string, --wipe = false] {
   print "Done! Factory image flashed."
 }
 
+def adb-device-states []: nothing -> table<serial: string, state: string> {
+  adb devices
+  | lines
+  | skip 1
+  | where { $in | str contains "\t" }
+  | each { |line|
+      let parts = ($line | split row "\t")
+      { serial: ($parts | first | str trim), state: ($parts | last | str trim) }
+    }
+}
+
 def sideload [] {
   let device = $env.DEVICE
 
@@ -430,16 +441,18 @@ def sideload [] {
     return
   }
 
-  let connected_devices = (adb devices | lines | skip 1 | where { $in | str contains "device" } | each { $in | split row "\t" | first })
+  let connected_devices = (adb-device-states)
   if ($connected_devices | is-empty) {
     print "Error: No device connected"
     return
   }
 
-  if not ($serial in $connected_devices) {
+  let state = ($connected_devices | where serial == $serial | get -o 0.state)
+  if ($state == null) {
     print $"Error: Expected device not connected!"
     print $"  Expected: ($serial) \(($device))"
-    print $"  Connected: ($connected_devices | str join ', ')"
+    let summary = ($connected_devices | each { |it| $"($it.serial) \(($it.state))" } | str join ', ')
+    print $"  Connected: ($summary)"
     return
   }
 
@@ -451,25 +464,33 @@ def sideload [] {
     return
   }
 
-  print $"Rebooting ($device) to recovery..."
-  adb -s $serial reboot recovery
-
-  print "Waiting for recovery mode (select 'Apply update from ADB' on device)..."
-  sleep 5sec
-
-  mut ready = false
-  for _ in 1..30 {
-    let status = (adb devices | str contains "sideload")
-    if $status {
-      $ready = true
-      break
-    }
-    sleep 2sec
-  }
-
-  if not $ready {
-    print "Error: Device not in sideload mode. Select 'Apply update from ADB' on device."
+  if $state == "sideload" {
+    print $"($device) already in sideload mode, skipping reboot"
+  } else if $state not-in ["device" "recovery"] {
+    print $"Error: ($serial) is in state '($state)', expected 'device', 'recovery' or 'sideload'."
     return
+  } else {
+    if $state == "device" {
+      print $"Rebooting ($device) to recovery..."
+      adb -s $serial reboot recovery
+      sleep 5sec
+    }
+
+    print "Waiting for sideload mode (select 'Apply update from ADB' on device)..."
+
+    mut ready = false
+    for _ in 1..30 {
+      if (adb-device-states | any { $in.serial == $serial and $in.state == "sideload" }) {
+        $ready = true
+        break
+      }
+      sleep 2sec
+    }
+
+    if not $ready {
+      print "Error: Device not in sideload mode. Select 'Apply update from ADB' on device."
+      return
+    }
   }
 
   print $"Sideloading ($ota_file)..."
