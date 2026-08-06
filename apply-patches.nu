@@ -166,7 +166,7 @@ def main [
         $root | path join '.repo' 'project.list'
         | open | lines | where {|l| ($l | str trim) != '' }
     )
-    let patches = (glob ($dir | path join '*.patch') | sort)
+    let patches = (glob ($dir | path join '**' '*.patch') | sort)
 
     if ($patches | is-empty) {
         error make {msg: $'no .patch files under ($dir)'}
