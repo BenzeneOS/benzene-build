@@ -8,6 +8,27 @@
 # in turn, filtered to that project's files.
 
 const default_patch_dir = 'vendor/benzeneos/patches'
+const patch_author = 'security@benzeneos.org'
+
+# Applied patches are derived state, not work worth keeping.
+def applied-commits [root: string, projects: list<string>]: nothing -> list {
+    mut found = []
+    for project in $projects {
+        let dir = ($root | path join $project)
+        if not ($dir | path join '.git' | path exists) { continue }
+        let count = (
+            (^git -C $dir log $'--author=($patch_author)' --format=%H | complete).stdout
+            | lines | where {|l| ($l | str trim) != '' } | length
+        )
+        if $count == 0 { continue }
+        let foreign = (
+            (^git -C $dir log -n $count --format=%ae | complete).stdout
+            | lines | where {|l| ($l | str trim) != $patch_author } | length
+        )
+        $found = ($found | append {project: $project, count: $count, foreign: $foreign})
+    }
+    $found
+}
 
 def find-tree-root [] {
     mut dir = ($env.PWD | path expand)
@@ -147,6 +168,8 @@ def step-result [step: record, outcome: record]: nothing -> record {
 def main [
     --patch-dir: string = $default_patch_dir  # patch directory, relative to the tree root
     --dry-run                                 # report what would apply, change nothing
+    --reset                                   # drop a previous run's patch commits first
+    --undo                                    # drop a previous run's patch commits and stop
 ]: nothing -> nothing {
     let root = (find-tree-root)
     let dir = ($root | path join $patch_dir)
@@ -173,7 +196,34 @@ def main [
     }
 
     let plan = (build-plan $patches $projects)
-    print $'($patches | length) patches, ($plan | where project != "" | get project | uniq | length) projects, across ($root)'
+    let targets = ($plan | where project != '' | get project | uniq)
+
+    let applied = (applied-commits $root $targets)
+    let total = (if ($applied | is-empty) { 0 } else { $applied | get count | math sum })
+
+    if not ($applied | is-empty) {
+        let unsafe = ($applied | where foreign > 0)
+        if not ($unsafe | is-empty) {
+            print ($unsafe | select project count foreign)
+            error make {msg: 'patch commits are interleaved with other work, refusing to touch them'}
+        }
+        if $dry_run {
+            print $'note: ($total) patch commits are already applied, so failures below are stale rather than real'
+        } else if $reset or $undo {
+            for p in $applied {
+                ^git -C ($root | path join $p.project) reset --hard $'HEAD~($p.count)' | complete | ignore
+            }
+            print $'reset ($total) patch commits across ($applied | length) projects'
+            if $undo { return }
+        } else {
+            error make {msg: $'($total) patch commits from a previous run are already applied across ($applied | length) projects — re-run with --reset'}
+        }
+    } else if $undo {
+        print 'no patch commits applied, nothing to undo'
+        return
+    }
+
+    print $'($patches | length) patches, ($targets | length) projects, across ($root)'
 
     let results = if $dry_run { check-plan $plan $root } else { apply-plan $plan $root }
     let failures = ($results | where status != 'ok')
