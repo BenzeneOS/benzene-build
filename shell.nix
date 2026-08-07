@@ -114,7 +114,7 @@ let
         inotify-tools
       ];
 
-    # Bind host /etc entries needed by nushell config (atuin, nushell, direnv, etc.)
+    # Bind host /etc entries needed by nushell config (atuin, nushell, git etc.)
     extraBwrapArgs = [
       "--symlink"
       "/.host-etc/nushell"
@@ -122,9 +122,12 @@ let
       "--symlink"
       "/.host-etc/atuin"
       "/etc/atuin"
+      "--symlink"
+      "/.host-etc/git"
+      "/etc/git"
     ];
 
-    runScript = pkgs.writeScript "graphene-shell" ''
+    runScript = pkgs.writeScript "graphene-shell" /* sh */ ''
       #!${pkgs.bash}/bin/bash
       if [ -z "''${DEVICE:-}" ]; then
         echo "Error: the DEVICE env var must be set"
@@ -141,9 +144,7 @@ let
       exec ${pkgs.nushell}/bin/nu $NU_CONFIG_ARGS -e "use ${pkgs.nu_scripts}/share/nu_scripts/modules/capture-foreign-env; source graphene-env.nu"
     '';
 
-    profile =
-      (import ./build-env-common.nix).commonProfile
-      + ''
+    profile = (import ./build-env-common.nix).commonProfile + /* sh */ ''
       source build/envsetup.sh 2>/dev/null
       export QT_QPA_PLATFORM=xcb
       unset LD_PRELOAD
