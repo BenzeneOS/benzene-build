@@ -167,6 +167,7 @@ def step-result [step: record, outcome: record]: nothing -> record {
 # Apply every patch in the patch directory, one commit per patch per project.
 def main [
     --patch-dir: string = $default_patch_dir  # patch directory, relative to the tree root
+    --project: string = ''                    # limit to these repo projects, comma separated
     --dry-run                                 # report what would apply, change nothing
     --reset                                   # drop a previous run's patch commits first
     --undo                                    # drop a previous run's patch commits and stop
@@ -195,7 +196,23 @@ def main [
         error make {msg: $'no .patch files under ($dir)'}
     }
 
-    let plan = (build-plan $patches $projects)
+    let full_plan = (build-plan $patches $projects)
+    let selected = (
+        $project | split row ',' | each {|p| $p | str trim } | where {|p| $p != '' }
+    )
+
+    let plan = if ($selected | is-empty) { $full_plan } else {
+        let unknown = ($selected | where {|p| $p not-in $projects })
+        if not ($unknown | is-empty) {
+            error make {msg: $'not repo projects: ($unknown | str join ", ")'}
+        }
+        $full_plan | where project in $selected
+    }
+
+    if ($plan | is-empty) {
+        error make {msg: $'no patches touch ($selected | str join ", ")'}
+    }
+
     let targets = ($plan | where project != '' | get project | uniq)
 
     let applied = (applied-commits $root $targets)
@@ -223,7 +240,9 @@ def main [
         return
     }
 
-    print $'($patches | length) patches, ($targets | length) projects, across ($root)'
+    let steps = ($plan | where project != '' | length)
+    let scope = if ($selected | is-empty) { '' } else { $' limited to ($selected | str join ", ")' }
+    print $'($steps) patch steps, ($targets | length) projects, across ($root)($scope)'
 
     let results = if $dry_run { check-plan $plan $root } else { apply-plan $plan $root }
     let failures = ($results | where status != 'ok')
